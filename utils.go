@@ -1,8 +1,9 @@
-package opaquetoken
+package oauth_manager
 
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"errors"
 )
 
 func generateURLSafeOpaqueToken(length int) string {
@@ -15,4 +16,13 @@ func generateURLSafeOpaqueToken(length int) string {
 	// Base64 URL Safe 인코딩
 	token := base64.RawURLEncoding.EncodeToString(bytes)
 	return token
+}
+
+func errorWrap(err error) error {
+	switch {
+	case errors.Is(err, ErrTokenNotFound):
+		return ErrInvalidToken
+	default:
+		return err
+	}
 }
