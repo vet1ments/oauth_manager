@@ -9,39 +9,26 @@ import (
 	"time"
 )
 
-type backend interface {
-	saveToken(ctx context.Context, token string, value interface{}, expire time.Duration) (bool, error)
-	loadToken(ctx context.Context, token string) (string, error)
-	deleteToken(ctx context.Context, tokens ...string) error
-	getTokenInfo(ctx context.Context, token string) (*BackendTokenInfo, error)
-	isTokenExist(ctx context.Context, token string) (bool, error)
-	cleanupUserToken(ctx context.Context, userId string) error
-	saveUserToken(ctx context.Context, userId string, genToken func() (string, error), value interface{}, expiresIn time.Duration) (string, error)
-	loadUserToken(ctx context.Context, userId string, tokenString string) (*UserToken, error)
-	loadUserTokenList(ctx context.Context, userId string) ([]*UserToken, error)
-	deleteUserToken(ctx context.Context, userId string, tokens ...string) error
-}
-
-type RedisBackend struct {
+type redisBackend struct {
 	backend
 	client *redis.Client
 }
 
-func (r *RedisBackend) getUserTokenKey(userId string) string {
+func (r *redisBackend) getUserTokenKey(userId string) string {
 	return strings.Join([]string{
 		"USER_TOKENS",
 		userId,
 	}, ":")
 }
 
-func (r *RedisBackend) getTokenKey(tokenString string) string {
+func (r *redisBackend) getTokenKey(tokenString string) string {
 	return strings.Join([]string{
 		"TOKENS",
 		tokenString,
 	}, ":")
 }
 
-func (r *RedisBackend) saveToken(ctx context.Context, token string, value interface{}, expire time.Duration) (bool, error) {
+func (r *redisBackend) saveToken(ctx context.Context, token string, value interface{}, expire time.Duration) (bool, error) {
 	result, err := r.client.SetNX(
 		ctx,
 		r.getTokenKey(token),
@@ -54,7 +41,7 @@ func (r *RedisBackend) saveToken(ctx context.Context, token string, value interf
 	return result, nil
 }
 
-func (r *RedisBackend) loadToken(ctx context.Context, token string) (string, error) {
+func (r *redisBackend) loadToken(ctx context.Context, token string) (string, error) {
 	key := r.getTokenKey(token)
 
 	result, err := r.client.Get(ctx, key).Result()
@@ -66,7 +53,7 @@ func (r *RedisBackend) loadToken(ctx context.Context, token string) (string, err
 	}
 	return result, nil
 }
-func (r *RedisBackend) deleteToken(ctx context.Context, tokens ...string) error {
+func (r *redisBackend) deleteToken(ctx context.Context, tokens ...string) error {
 	tokensForDelete := make([]string, len(tokens))
 
 	for i, token := range tokens {
@@ -74,10 +61,10 @@ func (r *RedisBackend) deleteToken(ctx context.Context, tokens ...string) error 
 		tokensForDelete[i] = key
 	}
 
-	return r.client.Unlink(ctx, tokensForDelete...).Err()
+	return errorWrap(r.client.Unlink(ctx, tokensForDelete...).Err())
 }
 
-func (r *RedisBackend) getTokenInfo(ctx context.Context, token string) (*BackendTokenInfo, error) {
+func (r *redisBackend) getTokenInfo(ctx context.Context, token string) (*BackendTokenInfo, error) {
 	key := r.getTokenKey(token)
 
 	result, err := r.client.Get(ctx, key).Result()
@@ -96,7 +83,7 @@ func (r *RedisBackend) getTokenInfo(ctx context.Context, token string) (*Backend
 		ExpiresIn:   ttl,
 	}, nil
 }
-func (r *RedisBackend) isTokenExist(ctx context.Context, token string) (bool, error) {
+func (r *redisBackend) isTokenExist(ctx context.Context, token string) (bool, error) {
 	key := r.getTokenKey(token)
 
 	count, err := r.client.Exists(ctx, key).Result()
@@ -110,8 +97,7 @@ func (r *RedisBackend) isTokenExist(ctx context.Context, token string) (bool, er
 	}
 }
 
-func (r *RedisBackend) cleanupUserToken(ctx context.Context, userId string) error {
-	return nil
+func (r *redisBackend) cleanupUserToken(ctx context.Context, userId string) error {
 	key := r.getUserTokenKey(userId)
 
 	now := time.Now().UTC().Unix()
@@ -134,10 +120,9 @@ func (r *RedisBackend) cleanupUserToken(ctx context.Context, userId string) erro
 		}
 	}
 	return r.client.ZRem(ctx, key, tokensForDelete...).Err()
-
 }
 
-func (r *RedisBackend) saveUserToken(ctx context.Context, userId string, genToken func() (string, error), value interface{}, expiresIn time.Duration) (string, error) {
+func (r *redisBackend) saveUserToken(ctx context.Context, userId string, genToken func() (string, error), value interface{}, expiresIn time.Duration) (string, error) {
 	_ = r.cleanupUserToken(ctx, userId)
 	key := r.getUserTokenKey(userId)
 	for {
@@ -170,7 +155,7 @@ func (r *RedisBackend) saveUserToken(ctx context.Context, userId string, genToke
 }
 
 // User Token 내에 없으면 토큰도 지워줌
-func (r *RedisBackend) loadUserToken(ctx context.Context, userId string, tokenString string) (*UserToken, error) {
+func (r *redisBackend) loadUserToken(ctx context.Context, userId string, tokenString string) (*UserToken, error) {
 	_ = r.cleanupUserToken(ctx, userId)
 	key := r.getUserTokenKey(userId)
 
@@ -193,7 +178,7 @@ func (r *RedisBackend) loadUserToken(ctx context.Context, userId string, tokenSt
 	}, nil
 }
 
-func (r *RedisBackend) loadUserTokenList(ctx context.Context, userId string) ([]*UserToken, error) {
+func (r *redisBackend) loadUserTokenList(ctx context.Context, userId string) ([]*UserToken, error) {
 	_ = r.cleanupUserToken(ctx, userId)
 	key := r.getUserTokenKey(userId)
 
@@ -212,7 +197,7 @@ func (r *RedisBackend) loadUserTokenList(ctx context.Context, userId string) ([]
 	return userTokenList, nil
 }
 
-func (r *RedisBackend) deleteUserToken(ctx context.Context, userId string, tokens ...string) error {
+func (r *redisBackend) deleteUserToken(ctx context.Context, userId string, tokens ...string) error {
 	_ = r.cleanupUserToken(ctx, userId)
 	key := r.getUserTokenKey(userId)
 

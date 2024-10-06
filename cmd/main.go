@@ -14,8 +14,8 @@ type TokenPayload struct {
 
 var TokenContainer = make(map[string][]byte)
 var names = []string{
-	"노홍석",
-	"호라굴",
+	"test",
+	"test2",
 }
 
 const UserID = "28f9d61a-8087-4ed9-adfd-bb14d8c91e79"
@@ -43,41 +43,11 @@ func main() {
 	tkm := oauth_manager.CreateUserTokenManager[TokenPayload](options)
 
 	p, e := tkm.CreateTokenPair(ctx, UserID, &TokenPayload{
-		Name: "노홍석",
+		Name: "test",
 	})
 	if e != nil {
 		fmt.Println(e)
 		return
 	}
 	fmt.Println(p.RefreshToken)
-	//p, e = tkm.RefreshToken(ctx, p.RefreshToken)
-	//if e != nil {
-	//	fmt.Println(e)
-	//	return
-	//}
-	//fmt.Println(p)
-	//p, e = tkm.RefreshToken(ctx, p.RefreshToken)
-	//if e != nil {
-	//	fmt.Println(e)
-	//	return
-	//}
-	//fmt.Println(p)
-	//p, e = tkm.RefreshToken(ctx, p.RefreshToken)
-	//if e != nil {
-	//	fmt.Println(e)
-	//	return
-	//}
-	//fmt.Println(p)
-	//p, e = tkm.RefreshToken(ctx, p.RefreshToken)
-	//if e != nil {
-	//	fmt.Println(e)
-	//	return
-	//}
-	//fmt.Println(p)
-	//p, e = tkm.RefreshToken(ctx, p.RefreshToken)
-	//if e != nil {
-	//	fmt.Println(e)
-	//	return
-	//}
-	//fmt.Println(p)
 }

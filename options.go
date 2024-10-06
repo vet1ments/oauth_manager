@@ -9,14 +9,14 @@ type options struct {
 	accessTokenExpire  time.Duration
 	refreshTokenExpire time.Duration
 	backend            backend
-	tokenCreator       TokenCreator
+	tokenCreator       tokenCreator
 }
 
 var (
 	defaultOptions = &options{
 		accessTokenExpire:  time.Hour * 6,
 		refreshTokenExpire: time.Hour * 24 * 15,
-		tokenCreator:       &OpaqueTokenCreator{},
+		tokenCreator:       &opaqueTokenCreator{},
 	}
 )
 
@@ -36,14 +36,21 @@ func WithRefreshTokenExpire(expire time.Duration) Option {
 
 func WithOpaqueToken() Option {
 	return func(o *options) {
-		o.tokenCreator = &OpaqueTokenCreator{}
+		o.tokenCreator = &opaqueTokenCreator{}
+
+	}
+}
+
+func WithJWTToken() Option {
+	return func(o *options) {
+		o.tokenCreator = &jwtTokenCreator{}
 
 	}
 }
 
 func WithRedisBackend(client *redis.Client) Option {
 	return func(o *options) {
-		o.backend = &RedisBackend{
+		o.backend = &redisBackend{
 			client: client,
 		}
 	}

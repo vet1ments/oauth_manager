@@ -175,29 +175,27 @@ func (m *UserTokenManager[T]) AbortRefreshToken(ctx context.Context, tokenString
 		return errorWrap(err)
 	}
 
-	m.
 	userId := td.UserID
-	tokenId := td.ID
-
+	refreshTokenId := td.ID
 
 	userTokens, err := m.opts.backend.loadUserTokenList(ctx, userId)
 	if err != nil {
 		return errorWrap(err)
 	}
 
+	tokenStringForDelete := make([]string, 0)
 	for _, userToken := range userTokens {
 		_tokenString := userToken.Token
 		_tokenUnmarshalData := userToken.Data
-		_, err = m.unmarshalTokenData(_tokenUnmarshalData)
+		td, err = m.unmarshalTokenData(_tokenUnmarshalData)
 		if err != nil {
 			return errorWrap(err)
 		}
 
-		if _tokenString == tokenString {
-			continue
+		if refreshTokenId == td.ID {
+			tokenStringForDelete = append(tokenStringForDelete, _tokenString)
 		}
-
 	}
+	_ = m.opts.backend.deleteUserToken(ctx, userId, tokenStringForDelete...)
 	return nil
-
 }
