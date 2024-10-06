@@ -35,12 +35,12 @@ func main() {
 
 	fmt.Println(r)
 
-	options := []token.Option{
-		token.WithOpaqueToken(),
-		token.WithRedisBackend(cli),
+	options := []tokenmanager.Option{
+		tokenmanager.WithOpaqueToken(),
+		tokenmanager.WithRedisBackend(cli),
 	}
 
-	tkm := token.CreateUserTokenManager[TokenPayload](options)
+	tkm := tokenmanager.CreateManager[TokenPayload](options)
 
 	p, e := tkm.CreateTokenPair(ctx, UserID, &TokenPayload{
 		Name: "test",

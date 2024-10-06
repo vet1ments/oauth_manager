@@ -1,4 +1,4 @@
-package token
+package tokenmanager
 
 import (
 	"context"
@@ -8,6 +8,24 @@ import (
 	"strings"
 	"time"
 )
+
+type bUserTokenInfo struct {
+	TokenString string // literal TokenString String
+	TokenData   string // unmarshal token data
+}
+
+type backend interface {
+	saveToken(ctx context.Context, token string, value interface{}, expire time.Duration) (bool, error)
+	loadToken(ctx context.Context, token string) (string, error)
+	deleteToken(ctx context.Context, tokens ...string) error
+	isTokenExist(ctx context.Context, token string) (bool, error)
+
+	cleanupUserToken(ctx context.Context, userId string) error
+	saveUserToken(ctx context.Context, userId string, genToken func() (string, error), value interface{}, expiresIn time.Duration) (string, error)
+	loadUserToken(ctx context.Context, userId string, tokenString string) (*bUserTokenInfo, error)
+	loadUserTokenList(ctx context.Context, userId string) ([]*bUserTokenInfo, error)
+	deleteUserToken(ctx context.Context, userId string, tokens ...string) error
+}
 
 type redisBackend struct {
 	backend
@@ -64,25 +82,10 @@ func (r *redisBackend) deleteToken(ctx context.Context, tokens ...string) error 
 	return r.client.Unlink(ctx, tokensForDelete...).Err()
 }
 
-func (r *redisBackend) getTokenInfo(ctx context.Context, token string) (*BackendTokenInfo, error) {
-	key := r.getTokenKey(token)
-
-	result, err := r.client.Get(ctx, key).Result()
-	if err != nil {
-		return nil, err
-	}
-
-	ttl, err := r.client.TTL(ctx, token).Result()
-	if err != nil {
-		return nil, err
-	}
-
-	return &BackendTokenInfo{
-		TokenString: result,
-		TokenData:   result,
-		ExpiresIn:   ttl,
-	}, nil
+func (r *redisBackend) extendTokenExpire(ctx context.Context, tokenString string, expire time.Duration) (bool, error) {
+	return r.client.Expire(ctx, r.getTokenKey(tokenString), expire).Result()
 }
+
 func (r *redisBackend) isTokenExist(ctx context.Context, token string) (bool, error) {
 	key := r.getTokenKey(token)
 
@@ -105,12 +108,13 @@ func (r *redisBackend) cleanupUserToken(ctx context.Context, userId string) erro
 	if err != nil {
 		return err
 	}
-	tokens, err := r.client.ZRange(ctx, key, 0, -1).Result()
+	userTokens, err := r.client.ZRange(ctx, key, 0, -1).Result()
 	if err != nil {
 		return err
 	}
+
 	tokensForDelete := make([]interface{}, 0)
-	for _, token := range tokens {
+	for _, token := range userTokens {
 		ex, err := r.isTokenExist(ctx, token)
 		if err != nil {
 			return err
@@ -154,8 +158,8 @@ func (r *redisBackend) saveUserToken(ctx context.Context, userId string, genToke
 	}
 }
 
-// User Token 내에 없으면 토큰도 지워줌
-func (r *redisBackend) loadUserToken(ctx context.Context, userId string, tokenString string) (*UserToken, error) {
+// user TokenString 내에 없으면 토큰도 지워줌
+func (r *redisBackend) loadUserToken(ctx context.Context, userId string, tokenString string) (*bUserTokenInfo, error) {
 	_ = r.cleanupUserToken(ctx, userId)
 	key := r.getUserTokenKey(userId)
 
@@ -172,13 +176,13 @@ func (r *redisBackend) loadUserToken(ctx context.Context, userId string, tokenSt
 	if err != nil {
 		return nil, err
 	}
-	return &UserToken{
-		Token: tokenString,
-		Data:  data,
+	return &bUserTokenInfo{
+		TokenString: tokenString,
+		TokenData:   data,
 	}, nil
 }
 
-func (r *redisBackend) loadUserTokenList(ctx context.Context, userId string) ([]*UserToken, error) {
+func (r *redisBackend) loadUserTokenList(ctx context.Context, userId string) ([]*bUserTokenInfo, error) {
 	_ = r.cleanupUserToken(ctx, userId)
 	key := r.getUserTokenKey(userId)
 
@@ -186,7 +190,7 @@ func (r *redisBackend) loadUserTokenList(ctx context.Context, userId string) ([]
 	if err != nil {
 		return nil, err
 	}
-	userTokenList := make([]*UserToken, 0)
+	userTokenList := make([]*bUserTokenInfo, 0)
 	for _, tokenString := range tokenStringList {
 		userToken, err := r.loadUserToken(ctx, userId, tokenString)
 		if err != nil {
@@ -195,19 +199,4 @@ func (r *redisBackend) loadUserTokenList(ctx context.Context, userId string) ([]
 		userTokenList = append(userTokenList, userToken)
 	}
 	return userTokenList, nil
-}
-
-func (r *redisBackend) deleteUserToken(ctx context.Context, userId string, tokens ...string) error {
-	_ = r.cleanupUserToken(ctx, userId)
-	key := r.getUserTokenKey(userId)
-
-	err := r.client.ZRem(ctx, key, tokens).Err()
-	if err != nil {
-		return err
-	}
-	err = r.deleteToken(ctx, tokens...)
-	if err != nil {
-		return err
-	}
-	return nil
 }

@@ -1,4 +1,4 @@
-package token
+package tokenmanager
 
 import (
 	"github.com/redis/go-redis/v9"

@@ -1,4 +1,4 @@
-package token
+package tokenmanager
 
 type tokenCreator interface {
 	GenerateToken() (string, error)
