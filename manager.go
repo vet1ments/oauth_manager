@@ -10,8 +10,8 @@ import (
 func newTokenID() string { return uuid.New().String() }
 
 type UserTokenInfoM[T any] struct {
-	tokenData   *TokenData[T]
-	tokenString string
+	TokenData   *TokenData[T]
+	TokenString string
 }
 
 type UserTokenInfoPairM[T any] struct {
@@ -20,8 +20,7 @@ type UserTokenInfoPairM[T any] struct {
 }
 
 type user[T any] struct {
-	opts   options
-	parent *Manager[T]
+	opts options
 }
 
 func (u *user[T]) NewTokenID() string {
@@ -39,8 +38,8 @@ func (u *user[T]) createToken(ctx context.Context, userId string, tokenData *Tok
 	}
 
 	return &UserTokenInfoM[T]{
-		tokenData:   tokenData,
-		tokenString: tokenString,
+		TokenData:   tokenData,
+		TokenString: tokenString,
 	}, nil
 }
 
@@ -92,11 +91,12 @@ func (u *user[T]) CreateTokenPair(ctx context.Context, userId string, payload *T
 	if err != nil {
 		return nil, errorWrap(err)
 	}
-
-	return &UserTokenInfoPairM[T]{
+	g := &UserTokenInfoPairM[T]{
 		AccessToken:  access,
 		RefreshToken: refresh,
-	}, nil
+	}
+
+	return g, nil
 }
 
 func (u *user[T]) LoadToken(ctx context.Context, userId string, tokenString string) (*UserTokenInfoM[T], error) {
@@ -110,8 +110,8 @@ func (u *user[T]) LoadToken(ctx context.Context, userId string, tokenString stri
 		return nil, errorWrap(err)
 	}
 	return &UserTokenInfoM[T]{
-		tokenData:   tokenData,
-		tokenString: userToken.TokenString,
+		TokenData:   tokenData,
+		TokenString: userToken.TokenString,
 	}, nil
 }
 
@@ -128,8 +128,8 @@ func (u *user[T]) LoadTokenList(ctx context.Context, userId string) ([]*UserToke
 			continue
 		}
 		userTokenList = append(userTokenList, &UserTokenInfoM[T]{
-			tokenData:   v,
-			tokenString: token.TokenString,
+			TokenData:   v,
+			TokenString: token.TokenString,
 		})
 	}
 	return userTokenList, nil
@@ -200,7 +200,7 @@ func (m *Manager[T]) RefreshToken(ctx context.Context, tokenString string, optio
 	if err != nil {
 		return nil, errorWrap(err)
 	}
-	refreshTokenData = userRefreshTokenInfo.tokenData
+	refreshTokenData = userRefreshTokenInfo.TokenData
 
 	if refreshTokenData.Type != TypeRefresh {
 		return nil, ErrInvalidTokenType
@@ -222,7 +222,7 @@ func (m *Manager[T]) RefreshToken(ctx context.Context, tokenString string, optio
 		refreshTokenInfo = userRefreshTokenInfo
 	}
 
-	accessTokenInfo, err := m.User.CreateAccessToken(ctx, userId, payload, refreshTokenInfo.tokenData.ID)
+	accessTokenInfo, err := m.User.CreateAccessToken(ctx, userId, payload, refreshTokenInfo.TokenData.ID)
 	if err != nil {
 		return nil, errorWrap(err)
 	}
