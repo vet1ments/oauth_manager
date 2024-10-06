@@ -7,18 +7,18 @@ import (
 	"time"
 )
 
-type UserTokenManager[T any] struct {
+type Manager[T any] struct {
 	opts options
 }
 
-func CreateUserTokenManager[Payload any](opts []Option) *UserTokenManager[Payload] {
+func CreateUserTokenManager[Payload any](opts []Option) *Manager[Payload] {
 	o := apply(opts)
-	return &UserTokenManager[Payload]{
+	return &Manager[Payload]{
 		opts: *o,
 	}
 }
 
-func (m *UserTokenManager[T]) unmarshalTokenData(unmarshalTokenData string) (*TokenData[T], error) {
+func (m *Manager[T]) unmarshalTokenData(unmarshalTokenData string) (*TokenData[T], error) {
 	td := &TokenData[T]{}
 	err := json.Unmarshal([]byte(unmarshalTokenData), td)
 	if err != nil {
@@ -27,7 +27,7 @@ func (m *UserTokenManager[T]) unmarshalTokenData(unmarshalTokenData string) (*To
 	return td, nil
 }
 
-func (m *UserTokenManager[T]) createToken(ctx context.Context, userId string, tokenData *TokenData[T], expiresIn time.Duration) (string, error) {
+func (m *Manager[T]) createToken(ctx context.Context, userId string, tokenData *TokenData[T], expiresIn time.Duration) (string, error) {
 	saveValue, err := json.Marshal(tokenData)
 	if err != nil {
 		return "", errorWrap(err)
@@ -39,7 +39,7 @@ func (m *UserTokenManager[T]) createToken(ctx context.Context, userId string, to
 	return tokenString, nil
 }
 
-func (m *UserTokenManager[T]) CreateAccessToken(ctx context.Context, userId string, payload *T, tokenId ...string) (string, error) {
+func (m *Manager[T]) CreateAccessToken(ctx context.Context, userId string, payload *T, tokenId ...string) (string, error) {
 	tokenUUID := uuid.New()
 	_tokenId := tokenUUID.String()
 	if len(tokenId) != 0 {
@@ -56,7 +56,7 @@ func (m *UserTokenManager[T]) CreateAccessToken(ctx context.Context, userId stri
 	return r, errorWrap(e)
 }
 
-func (m *UserTokenManager[T]) CreateRefreshToken(ctx context.Context, userId string, payload *T, tokenId ...string) (string, error) {
+func (m *Manager[T]) CreateRefreshToken(ctx context.Context, userId string, payload *T, tokenId ...string) (string, error) {
 	tokenUUID := uuid.New()
 	_tokenId := tokenUUID.String()
 	if len(tokenId) != 0 {
@@ -75,7 +75,7 @@ func (m *UserTokenManager[T]) CreateRefreshToken(ctx context.Context, userId str
 	return r, errorWrap(e)
 }
 
-func (m *UserTokenManager[T]) CreateTokenPair(ctx context.Context, userId string, payload *T) (*TokenPair, error) {
+func (m *Manager[T]) CreateTokenPair(ctx context.Context, userId string, payload *T) (*TokenPair, error) {
 	tokenUUID := uuid.New()
 	tokenId := tokenUUID.String()
 	access, err := m.CreateAccessToken(ctx, userId, payload, tokenId)
@@ -94,11 +94,11 @@ func (m *UserTokenManager[T]) CreateTokenPair(ctx context.Context, userId string
 }
 
 // Validate Alias Of GetTokenData
-func (m *UserTokenManager[T]) Validate(ctx context.Context, tokenString string) (*TokenData[T], error) {
+func (m *Manager[T]) Validate(ctx context.Context, tokenString string) (*TokenData[T], error) {
 	td, err := m.Validate(ctx, tokenString)
 	return td, errorWrap(err)
 }
-func (m *UserTokenManager[T]) GetTokenData(ctx context.Context, tokenString string) (*TokenData[T], error) {
+func (m *Manager[T]) GetTokenData(ctx context.Context, tokenString string) (*TokenData[T], error) {
 	tokenUnmarshalData, err := m.opts.backend.loadToken(ctx, tokenString)
 	if err != nil {
 		return nil, errorWrap(err)
@@ -114,7 +114,7 @@ func (m *UserTokenManager[T]) GetTokenData(ctx context.Context, tokenString stri
 	return tokenData, nil
 }
 
-func (m *UserTokenManager[T]) RefreshToken(ctx context.Context, refreshTokenString string) (*TokenPair, error) {
+func (m *Manager[T]) RefreshToken(ctx context.Context, refreshTokenString string) (*TokenPair, error) {
 	refreshTokenUnmarshalData, err := m.opts.backend.loadToken(ctx, refreshTokenString)
 	if err != nil {
 		return nil, errorWrap(err)
@@ -165,11 +165,11 @@ func (m *UserTokenManager[T]) RefreshToken(ctx context.Context, refreshTokenStri
 	return nil, ErrInvalidToken
 }
 
-func (m *UserTokenManager[T]) AbortToken(ctx context.Context, tokenString string) error {
+func (m *Manager[T]) AbortToken(ctx context.Context, tokenString string) error {
 	return errorWrap(m.opts.backend.deleteToken(ctx, tokenString))
 }
 
-func (m *UserTokenManager[T]) AbortRefreshToken(ctx context.Context, tokenString string) error {
+func (m *Manager[T]) AbortRefreshToken(ctx context.Context, tokenString string) error {
 	td, err := m.GetTokenData(ctx, tokenString)
 	if err != nil {
 		return errorWrap(err)

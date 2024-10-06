@@ -61,7 +61,7 @@ func (r *redisBackend) deleteToken(ctx context.Context, tokens ...string) error 
 		tokensForDelete[i] = key
 	}
 
-	return errorWrap(r.client.Unlink(ctx, tokensForDelete...).Err())
+	return r.client.Unlink(ctx, tokensForDelete...).Err()
 }
 
 func (r *redisBackend) getTokenInfo(ctx context.Context, token string) (*BackendTokenInfo, error) {
