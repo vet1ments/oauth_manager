@@ -56,6 +56,7 @@ func (u *user[T]) CreateAccessToken(ctx context.Context, userId string, payload 
 		Type:      TypeAccess,
 		Payload:   *payload,
 		CreatedAt: createdAt,
+		ExpiresIn: u.opts.accessTokenExpire,
 	}, u.opts.accessTokenExpire)
 	return r, errorWrap(e)
 }
@@ -74,6 +75,7 @@ func (u *user[T]) CreateRefreshToken(ctx context.Context, userId string, payload
 		Type:      TypeRefresh,
 		Payload:   *payload,
 		CreatedAt: createdAt,
+		ExpiresIn: u.opts.refreshTokenExpire,
 	}, u.opts.refreshTokenExpire)
 
 	return r, errorWrap(e)
