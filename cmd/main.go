@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/redis/go-redis/v9"
-	"github.com/vet1ments/oauth_manager"
+	"github.com/vet1ments/token_manager"
 	"time"
 )
 
@@ -35,12 +35,12 @@ func main() {
 
 	fmt.Println(r)
 
-	options := []oauth_manager.Option{
-		oauth_manager.WithOpaqueToken(),
-		oauth_manager.WithRedisBackend(cli),
+	options := []token.Option{
+		token.WithOpaqueToken(),
+		token.WithRedisBackend(cli),
 	}
 
-	tkm := oauth_manager.CreateUserTokenManager[TokenPayload](options)
+	tkm := token.CreateUserTokenManager[TokenPayload](options)
 
 	p, e := tkm.CreateTokenPair(ctx, UserID, &TokenPayload{
 		Name: "test",

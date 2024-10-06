@@ -1,4 +1,4 @@
-package oauth_manager
+package token
 
 type tokenCreator interface {
 	GenerateToken() (string, error)

@@ -1,4 +1,4 @@
-package oauth_manager
+package token
 
 import (
 	"github.com/redis/go-redis/v9"
