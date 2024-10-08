@@ -27,12 +27,12 @@ func (u *user[T]) NewTokenID() string {
 	return newTokenID()
 }
 
-func (u *user[T]) createToken(ctx context.Context, userId string, tokenData *TokenData[T], expiresIn time.Duration) (*UserTokenInfoM[T], error) {
+func (u *user[T]) createToken(ctx context.Context, userID string, tokenData *TokenData[T], expiresIn time.Duration) (*UserTokenInfoM[T], error) {
 	saveValue, err := json.Marshal(tokenData)
 	if err != nil {
 		return nil, errorWrap(err)
 	}
-	tokenString, err := u.opts.backend.saveUserToken(ctx, userId, u.opts.tokenCreator.GenerateToken, string(saveValue), expiresIn)
+	tokenString, err := u.opts.backend.saveUserToken(ctx, userID, u.opts.tokenCreator.GenerateToken, string(saveValue), expiresIn)
 	if err != nil {
 		return nil, errorWrap(err)
 	}
@@ -43,16 +43,16 @@ func (u *user[T]) createToken(ctx context.Context, userId string, tokenData *Tok
 	}, nil
 }
 
-func (u *user[T]) CreateAccessToken(ctx context.Context, userId string, payload *T, tokenId ...string) (*UserTokenInfoM[T], error) {
+func (u *user[T]) CreateAccessToken(ctx context.Context, userID string, payload *T, tokenID ...string) (*UserTokenInfoM[T], error) {
 	tokenUUID := uuid.New()
 	_tokenId := tokenUUID.String()
-	if len(tokenId) != 0 {
-		_tokenId = tokenId[0]
+	if len(tokenID) != 0 {
+		_tokenId = tokenID[0]
 	}
 	createdAt, _ := tokenUUID.Time().UnixTime()
-	r, e := u.createToken(ctx, userId, &TokenData[T]{
+	r, e := u.createToken(ctx, userID, &TokenData[T]{
 		ID:        _tokenId,
-		UserID:    userId,
+		UserID:    userID,
 		Type:      TypeAccess,
 		Payload:   *payload,
 		CreatedAt: createdAt,
@@ -61,17 +61,17 @@ func (u *user[T]) CreateAccessToken(ctx context.Context, userId string, payload 
 	return r, errorWrap(e)
 }
 
-func (u *user[T]) CreateRefreshToken(ctx context.Context, userId string, payload *T, tokenId ...string) (*UserTokenInfoM[T], error) {
+func (u *user[T]) CreateRefreshToken(ctx context.Context, userID string, payload *T, tokenID ...string) (*UserTokenInfoM[T], error) {
 	tokenUUID := uuid.New()
 	_tokenId := tokenUUID.String()
-	if len(tokenId) != 0 {
-		_tokenId = tokenId[0]
+	if len(tokenID) != 0 {
+		_tokenId = tokenID[0]
 	}
 	createdAt, _ := tokenUUID.Time().UnixTime()
 
-	r, e := u.createToken(ctx, userId, &TokenData[T]{
+	r, e := u.createToken(ctx, userID, &TokenData[T]{
 		ID:        _tokenId,
-		UserID:    userId,
+		UserID:    userID,
 		Type:      TypeRefresh,
 		Payload:   *payload,
 		CreatedAt: createdAt,
@@ -81,15 +81,15 @@ func (u *user[T]) CreateRefreshToken(ctx context.Context, userId string, payload
 	return r, errorWrap(e)
 }
 
-func (u *user[T]) CreateTokenPair(ctx context.Context, userId string, payload *T) (*UserTokenInfoPairM[T], error) {
+func (u *user[T]) CreateTokenPair(ctx context.Context, userID string, payload *T) (*UserTokenInfoPairM[T], error) {
 	tid := u.NewTokenID()
 
-	access, err := u.CreateAccessToken(ctx, userId, payload, tid)
+	access, err := u.CreateAccessToken(ctx, userID, payload, tid)
 	if err != nil {
 		return nil, errorWrap(err)
 	}
 
-	refresh, err := u.CreateRefreshToken(ctx, userId, payload, tid)
+	refresh, err := u.CreateRefreshToken(ctx, userID, payload, tid)
 	if err != nil {
 		return nil, errorWrap(err)
 	}
@@ -101,8 +101,8 @@ func (u *user[T]) CreateTokenPair(ctx context.Context, userId string, payload *T
 	return g, nil
 }
 
-func (u *user[T]) LoadToken(ctx context.Context, userId string, tokenString string) (*UserTokenInfoM[T], error) {
-	userToken, err := u.opts.backend.loadUserToken(ctx, userId, tokenString)
+func (u *user[T]) LoadToken(ctx context.Context, userID string, tokenString string) (*UserTokenInfoM[T], error) {
+	userToken, err := u.opts.backend.loadUserToken(ctx, userID, tokenString)
 	if err != nil {
 		return nil, errorWrap(err)
 	}
@@ -117,8 +117,8 @@ func (u *user[T]) LoadToken(ctx context.Context, userId string, tokenString stri
 	}, nil
 }
 
-func (u *user[T]) LoadTokenList(ctx context.Context, userId string) ([]*UserTokenInfoM[T], error) {
-	tokenList, err := u.opts.backend.loadUserTokenList(ctx, userId)
+func (u *user[T]) LoadTokenList(ctx context.Context, userID string) ([]*UserTokenInfoM[T], error) {
+	tokenList, err := u.opts.backend.loadUserTokenList(ctx, userID)
 	if err != nil {
 		return nil, errorWrap(err)
 	}
@@ -135,6 +135,22 @@ func (u *user[T]) LoadTokenList(ctx context.Context, userId string) ([]*UserToke
 		})
 	}
 	return userTokenList, nil
+}
+
+func (u *user[T]) AbortToken(ctx context.Context, userID string, tokenID string) error {
+	userTokenInfos, err := u.LoadTokenList(ctx, userID)
+	if err != nil {
+		return errorWrap(err)
+	}
+
+	tokenForDelete := make([]string, 0)
+	for _, tokenInfo := range userTokenInfos {
+		if tokenInfo.TokenData.ID == tokenID {
+			tokenForDelete = append(tokenForDelete, tokenInfo.TokenString)
+		}
+	}
+
+	return errorWrap(u.opts.backend.deleteToken(ctx, tokenForDelete...))
 }
 
 type Manager[T any] struct {
@@ -185,8 +201,8 @@ func (m *Manager[T]) GetTokenData(ctx context.Context, tokenString string) (*Tok
 	return tokenData, nil
 }
 
-func (m *Manager[T]) AbortToken(ctx context.Context, tokenString string) error {
-	return errorWrap(m.opts.backend.deleteToken(ctx, tokenString))
+func (m *Manager[T]) AbortToken(ctx context.Context, tokenString ...string) error {
+	return errorWrap(m.opts.backend.deleteToken(ctx, tokenString...))
 }
 
 type RefreshTokenOption struct {
